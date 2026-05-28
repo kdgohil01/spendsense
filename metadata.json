@@ -1,0 +1,6 @@
+{
+  "name": "SpendSense",
+  "description": "SpendSense is an encrypted daily money and expense tracker with weekly & monthly insights, simple tab-based daily expense writer, visual arts diagnostics, and secure cloud sync with your Google account.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

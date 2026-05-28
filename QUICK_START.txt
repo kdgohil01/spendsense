@@ -1,0 +1,52 @@
+╔════════════════════════════════════════════════════════════════╗
+║           SpendSense - Quick Start Guide                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+📱 TO BUILD APK FILE FOR YOUR PHONE:
+
+Step 1: Install Android Studio
+   → Download: https://developer.android.com/studio
+   → Install with default settings
+
+Step 2: Open Project in Android Studio
+   → Launch Android Studio
+   → Click "Open"
+   → Select folder: K:\projects\SpendSense
+   → Wait for Gradle sync (may take 5-10 minutes first time)
+
+Step 3: Add Your API Key (Optional but recommended)
+   → Open .env file in project root
+   → Replace YOUR_API_KEY_HERE with your Gemini API key
+   → Get key from: https://ai.google.dev/
+
+Step 4: Build APK
+   → In Android Studio: Build → Build Bundle(s) / APK(s) → Build APK(s)
+   → OR double-click: build-apk.bat (after Android Studio setup)
+
+Step 5: Find Your APK
+   → Location: app\build\outputs\apk\debug\app-debug.apk
+   → Copy this file to your phone
+
+Step 6: Install on Phone
+   → Transfer app-debug.apk to your phone
+   → Open the file on your phone
+   → Allow installation from unknown sources if asked
+   → Install and enjoy!
+
+═══════════════════════════════════════════════════════════════
+
+⚡ QUICK BUILD (After Android Studio is installed):
+   → Double-click: build-apk.bat
+   → Wait for build to complete
+   → APK will be in: app\build\outputs\apk\debug\
+
+═══════════════════════════════════════════════════════════════
+
+📖 For detailed instructions, see: BUILD_APK_GUIDE.md
+
+═══════════════════════════════════════════════════════════════
+
+✅ Your new SpendSense icon is already configured!
+   It will show the wallet with chart icon on your phone.
+
+═══════════════════════════════════════════════════════════════

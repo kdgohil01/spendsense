@@ -1,0 +1,107 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rising Gradient Line Chart -->
+    <path
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M28,52 L40,36 L54,46 L68,30 L80,18">
+        <gradient
+            android:type="linear"
+            android:startX="28"
+            android:startY="52"
+            android:endX="80"
+            android:endY="18">
+            <item android:offset="0.0" android:color="#33D9B2" />
+            <item android:offset="0.4" android:color="#00C897" />
+            <item android:offset="0.7" android:color="#FFCA28" />
+            <item android:offset="1.0" android:color="#FF5252" />
+        </gradient>
+    </path>
+
+    <!-- Arrow head pointing to the success moon up-right -->
+    <path
+        android:fillColor="#FF5252"
+        android:pathData="M81,17v10h-2l-1.5,-6.5l-6.5,-1.5v-2z" />
+
+    <!-- Wallet shadow -->
+    <path
+        android:fillColor="#15000000"
+        android:pathData="M24,56 C24,51 28,47 33,47 H75 C80,47 84,51 84,56 V76 C84,81 80,85 75,85 H33 C28,85 24,81 24,76 Z" />
+
+    <!-- Wallet Body with premium gradient mirroring 3D depth -->
+    <path
+        android:pathData="M24,54 C24,49.5 27.5,46 32,46 H76 C80.5,46 84,49.5 84,54 V74 C84,78.5 80.5,82 76,82 H32 C27.5,82 24,78.5 24,74 Z">
+        <gradient
+            android:type="linear"
+            android:startX="24"
+            android:startY="46"
+            android:endX="84"
+            android:endY="82">
+            <item android:offset="0.0" android:color="#1C2C43" />
+            <item android:offset="1.0" android:color="#0C1523" />
+        </gradient>
+    </path>
+
+    <!-- Glowing accent border representing high-tech cyber security highlight -->
+    <path
+        android:strokeWidth="1.2"
+        android:strokeColor="#253C5D"
+        android:pathData="M24,54 C24,49.5 27.5,46 32,46 H76 C80.5,46 84,49.5 84,54 V74 C84,78.5 80.5,82 76,82 H32 C27.5,82 24,78.5 24,74 Z" />
+
+    <!-- Inner coin/card storage slit visual depth slot -->
+    <path
+        android:strokeWidth="2.5"
+        android:strokeColor="#33D9B2"
+        android:strokeLineCap="round"
+        android:pathData="M32,51 H76" />
+
+    <!-- Wallet Fold Strap Flap on Right -->
+    <path
+        android:pathData="M66,54h14c1.1,0 2,0.9 2,2v10c0,1.1 -0.9,2 -2,2H66c-1.1,0 -2,-0.9 -2,-2V56c0,-1.1 0.9,-2 2,-2z">
+        <gradient
+            android:type="linear"
+            android:startX="64"
+            android:startY="54"
+            android:endX="82"
+            android:endY="68">
+            <item android:offset="0.0" android:color="#273C5C" />
+            <item android:offset="1.0" android:color="#111B29" />
+        </gradient>
+    </path>
+
+    <!-- Metallic Buckle circle button with glow -->
+    <path
+        android:fillColor="#00C897"
+        android:pathData="M73,61A2.5,2.5 0 1,0 78,61 A2.5,2.5 0 1,0 73,61 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74.5,61A1.0,1.0 0 1,0 76.5,61 A1.0,1.0 0 1,0 74.5,61 Z" />
+
+    <!-- Joint Node Dots of Trend Line with ring effects -->
+    <!-- Node 1: (40, 36) -->
+    <path
+        android:fillColor="#151E2E"
+        android:strokeWidth="1.5"
+        android:strokeColor="#33D9B2"
+        android:pathData="M37.5,36A2.5,2.5 0 1,0 42.5,36 A2.5,2.5 0 1,0 37.5,36 Z" />
+
+    <!-- Node 2: (54, 46) -->
+    <path
+        android:fillColor="#151E2E"
+        android:strokeWidth="1.5"
+        android:strokeColor="#00C897"
+        android:pathData="M51.5,46A2.5,2.5 0 1,0 56.5,46 A2.5,2.5 0 1,0 51.5,46 Z" />
+
+    <!-- Node 3: (68, 30) -->
+    <path
+        android:fillColor="#151E2E"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFCA28"
+        android:pathData="M65.5,30A2.5,2.5 0 1,0 70.5,30 A2.5,2.5 0 1,0 65.5,30 Z" />
+
+</vector>
