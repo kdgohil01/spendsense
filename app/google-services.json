@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "607813597743",
+    "project_id": "spendsense-eac1a",
+    "storage_bucket": "spendsense-eac1a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:607813597743:android:f07625097a0f80d499e4da",
+        "android_client_info": {
+          "package_name": "com.spendsense.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "607813597743-o6qvpsbjuup1luvqgjf6hf9a7jp31iu0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spendsense.app",
+            "certificate_hash": "a789f506a807a122ec906aa6eac3d48b3a30ab18"
+          }
+        },
+        {
+          "client_id": "607813597743-a3gusb7okt6o748o0thfths32obp233h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOPKxt0SI7yrj2x7aiRl_F-IxCgnA_T8c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "607813597743-a3gusb7okt6o748o0thfths32obp233h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

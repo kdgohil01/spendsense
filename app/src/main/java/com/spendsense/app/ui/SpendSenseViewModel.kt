@@ -18,9 +18,21 @@ import java.util.*
 
 class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel() {
 
+    private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+
     // General app states
     private val _showSplash = MutableStateFlow(true)
     val showSplash: StateFlow<Boolean> = _showSplash.asStateFlow()
+
+    private val _isGuestMode = MutableStateFlow(false)
+    val isGuestMode: StateFlow<Boolean> = _isGuestMode.asStateFlow()
+
+    private val _isGoogleSignedIn = MutableStateFlow(auth.currentUser != null)
+    val isGoogleSignedIn: StateFlow<Boolean> = _isGoogleSignedIn.asStateFlow()
+
+    val showAuthScreen: StateFlow<Boolean> = combine(_isGoogleSignedIn, _isGuestMode) { signedIn, guest ->
+        !signedIn && !guest
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser == null)
 
     private val _selectedTab = MutableStateFlow(0) // 0 for Weekly View, 1 for Monthly View
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
@@ -33,10 +45,6 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
 
     private val _budgetLimit = MutableStateFlow(800.0) // Monthly/weekly budget setting
     val budgetLimit: StateFlow<Double> = _budgetLimit.asStateFlow()
-
-    // Google synchronization simulated states
-    private val _isGoogleSignedIn = MutableStateFlow(false)
-    val isGoogleSignedIn: StateFlow<Boolean> = _isGoogleSignedIn.asStateFlow()
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
@@ -64,14 +72,10 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
             _showSplash.value = false
         }
         
-        // Populate sample data if DB is empty to offer premium first-launch visual feedback
-        /* viewModelScope.launch {
-            rawExpenses.collect { list ->
-                if (list.isEmpty()) {
-                    populateSmartSampleData()
-                }
-            }
-        } */
+        // Listen for Auth changes
+        auth.addAuthStateListener {
+            _isGoogleSignedIn.value = it.currentUser != null
+        }
     }
 
     // Interactive navigation setters
@@ -93,19 +97,24 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
         }
     }
 
-    // Google Sign-In trigger
+    fun enterAsGuest() {
+        _isGuestMode.value = true
+    }
+
+    // Google Sign-In trigger (Simulated with actual Firebase check)
     fun signInGoogleAccount() {
         viewModelScope.launch {
             _isSyncing.value = true
-            delay(1000) // Realistic interactive delay
-            _isGoogleSignedIn.value = true
+            // This is usually handled via an Intent or Credential Manager
+            // The AuthStateListener will update the UI once the user is signed in
             _isSyncing.value = false
-            triggerCloudSync()
         }
     }
 
     fun signOutGoogleAccount() {
+        auth.signOut()
         _isGoogleSignedIn.value = false
+        _isGuestMode.value = false
         _lastSyncTime.value = "Never synced"
     }
 
@@ -163,18 +172,6 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
 
     private fun getCurrentDayOfMonth(): Int {
         return Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
-    }
-
-    private suspend fun populateSmartSampleData() {
-        val todayCalendar = Calendar.getInstance()
-        val currentDay = todayCalendar.get(Calendar.DAY_OF_MONTH)
-        
-        // Add a few beautiful mock entries to prevent initial launch visual blank space
-        repository.insertExpense("Organic Groceries", 45.50, "Groceries", currentDay, currentMonth, currentYear, getCurrentDayOfWeek())
-        repository.insertExpense("Netflix Subscription", 15.49, "Bills", Math.max(1, currentDay - 2), currentMonth, currentYear, Math.max(1, getCurrentDayOfWeek() - 2))
-        repository.insertExpense("Double Matcha Latte", 6.75, "Food", currentDay, currentMonth, currentYear, getCurrentDayOfWeek())
-        repository.insertExpense("Gasoline Refill", 32.20, "Travel", Math.max(1, currentDay - 4), currentMonth, currentYear, Math.max(1, getCurrentDayOfWeek() - 4))
-        repository.insertExpense("Cinema Ticket", 12.00, "Leisure", Math.max(1, currentDay - 1), currentMonth, currentYear, Math.max(1, getCurrentDayOfWeek() - 1))
     }
 }
 

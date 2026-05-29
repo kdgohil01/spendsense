@@ -116,7 +116,7 @@ fun CategoryDonutChart(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "$${String.format("%.2f", grandTotal)}",
+                            text = "₹${String.format("%.2f", grandTotal)}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Black,
                             color = MaterialTheme.colorScheme.onSurface
@@ -311,7 +311,7 @@ fun CategoryLegendItem(
                 )
             }
             Text(
-                text = "$${String.format("%.2f", amount)}",
+                text = "₹${String.format("%.2f", amount)}",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
             )

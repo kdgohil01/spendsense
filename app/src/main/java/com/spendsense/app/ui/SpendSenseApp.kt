@@ -46,12 +46,75 @@ import java.util.*
 @Composable
 fun SpendSenseApp(viewModel: SpendSenseViewModel) {
     val showSplash by viewModel.showSplash.collectAsStateWithLifecycle()
+    val showAuthScreen by viewModel.showAuthScreen.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (showSplash) {
             SplashAnimationScreen()
+        } else if (showAuthScreen) {
+            AuthenticationScreen(viewModel)
         } else {
             MainAppDashboard(viewModel)
+        }
+    }
+}
+
+@Composable
+fun AuthenticationScreen(viewModel: SpendSenseViewModel) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Savings,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(80.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Welcome to SpendSense",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Secure your expenses with end-to-end encryption and cloud backup.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            Button(
+                onClick = { viewModel.signInGoogleAccount() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Sign in with Google", fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedButton(
+                onClick = { viewModel.enterAsGuest() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Text("Continue as Guest", color = MaterialTheme.colorScheme.primary)
+            }
         }
     }
 }
@@ -392,7 +455,7 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
                     )
                     
                     Text(
-                        text = "Total Spending: $${String.format("%.2f", activeFilteredExpenses.sumOf { it.amount })}",
+                        text = "Total Spending: ₹${String.format("%.2f", activeFilteredExpenses.sumOf { it.amount })}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -499,7 +562,7 @@ fun BudgetStatsSection(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "$${String.format("%.2f", totalSpent)}",
+                        text = "₹${String.format("%.2f", totalSpent)}",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Black,
                         color = if (overBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
@@ -583,7 +646,7 @@ fun BudgetStatsSection(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Budget Limit: $${String.format("%.2f", budgetLimit)}",
+                            text = "Budget Limit: ₹${String.format("%.2f", budgetLimit)}",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -591,7 +654,7 @@ fun BudgetStatsSection(
                 }
 
                 Text(
-                    text = "Remaining: $${String.format("%.2f", (budgetLimit - totalSpent).coerceAtLeast(0.0))}",
+                    text = "Remaining: ₹${String.format("%.2f", (budgetLimit - totalSpent).coerceAtLeast(0.0))}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (overBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
@@ -694,7 +757,7 @@ fun WeeklyDaySegment(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (daySpent > 0f) "$${daySpent.toInt()}" else "—",
+                        text = if (daySpent > 0f) "₹${daySpent.toInt()}" else "—",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (daySpent > 0f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
@@ -867,7 +930,7 @@ fun ExpenseRowItem(
 
             // Amount and Action
             Text(
-                text = "-$${String.format("%.2f", expense.amount)}",
+                text = "-₹${String.format("%.2f", expense.amount)}",
                 fontWeight = FontWeight.Black,
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -931,7 +994,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = amountStr,
                     onValueChange = { amountStr = it },
-                    label = { Text("Amount ($)") },
+                    label = { Text("Amount (₹)") },
                     maxLines = 1,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth().testTag("add_expense_amount")
