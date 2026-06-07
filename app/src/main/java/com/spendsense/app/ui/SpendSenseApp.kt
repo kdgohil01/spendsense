@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.spendsense.app.data.DecryptedExpense
 import com.spendsense.app.ui.components.CategoryColors
 import com.spendsense.app.ui.components.CategoryDonutChart
@@ -61,6 +62,8 @@ fun SpendSenseApp(viewModel: SpendSenseViewModel) {
 
 @Composable
 fun AuthenticationScreen(viewModel: SpendSenseViewModel) {
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -94,14 +97,27 @@ fun AuthenticationScreen(viewModel: SpendSenseViewModel) {
             Spacer(modifier = Modifier.height(48.dp))
             
             Button(
-                onClick = { viewModel.signInGoogleAccount() },
+                onClick = { if (!isSyncing) viewModel.signInGoogleAccount() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isSyncing,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Sign in with Google", fontWeight = FontWeight.Bold)
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Sign in with Google", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             
@@ -111,6 +127,7 @@ fun AuthenticationScreen(viewModel: SpendSenseViewModel) {
                 onClick = { viewModel.enterAsGuest() },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
+                enabled = !isSyncing,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Text("Continue as Guest", color = MaterialTheme.colorScheme.primary)
@@ -239,6 +256,7 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
     val selectedMonthDay by viewModel.selectedMonthDay.collectAsStateWithLifecycle()
     val budgetLimit by viewModel.budgetLimit.collectAsStateWithLifecycle()
     val isGoogleSignedIn by viewModel.isGoogleSignedIn.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
     val lastSyncTime by viewModel.lastSyncTime.collectAsStateWithLifecycle()
 
@@ -328,13 +346,26 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
                             .testTag("google_profile_avatar"),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (isGoogleSignedIn) {
-                            Text(
-                                "KG", // Karmdeep Gohil
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
+                        if (isGoogleSignedIn && currentUser != null) {
+                            if (currentUser?.photoUrl != null) {
+                                AsyncImage(
+                                    model = currentUser?.photoUrl,
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            } else {
+                                val initials = currentUser?.displayName?.split(" ")
+                                    ?.mapNotNull { it.firstOrNull()?.toString() }
+                                    ?.take(2)
+                                    ?.joinToString("") ?: currentUser?.email?.take(1)?.uppercase() ?: "U"
+                                    
+                                Text(
+                                    initials,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
                         } else {
                             Icon(
                                 imageVector = Icons.Default.AccountCircle,
@@ -515,7 +546,7 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
 
     if (showSyncSheet) {
         GoogleSyncDialog(
-            isGoogleSignedIn = isGoogleSignedIn,
+            currentUser = currentUser,
             isSyncing = isSyncing,
             lastSyncTime = lastSyncTime,
             onDismiss = { showSyncSheet = false },
@@ -1046,7 +1077,7 @@ fun AddExpenseDialog(
 
 @Composable
 fun GoogleSyncDialog(
-    isGoogleSignedIn: Boolean,
+    currentUser: com.google.firebase.auth.FirebaseUser?,
     isSyncing: Boolean,
     lastSyncTime: String,
     onDismiss: () -> Unit,
@@ -1054,6 +1085,7 @@ fun GoogleSyncDialog(
     onSignOutClick: () -> Unit,
     onSyncClick: () -> Unit
 ) {
+    val isGoogleSignedIn = currentUser != null
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -1086,18 +1118,29 @@ fun GoogleSyncDialog(
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("KG", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                if (currentUser?.photoUrl != null) {
+                                    AsyncImage(
+                                        model = currentUser.photoUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.size(40.dp).clip(CircleShape)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val initial = currentUser?.displayName?.firstOrNull()?.toString() 
+                                            ?: currentUser?.email?.firstOrNull()?.toString() ?: "U"
+                                        Text(initial.uppercase(), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text("Karmdeep Gohil", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                                    Text("karmdeepgohil16@gmail.com", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    Text(currentUser?.displayName ?: "Google User", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(currentUser?.email ?: "No email available", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                    Text("Signed in via Google", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
                             }
                             

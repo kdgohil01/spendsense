@@ -6,12 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.spendsense.app.data.DecryptedExpense
 import com.spendsense.app.data.ExpenseRepository
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,11 +22,14 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
     private val _isGuestMode = MutableStateFlow(false)
     val isGuestMode: StateFlow<Boolean> = _isGuestMode.asStateFlow()
 
-    private val _isGoogleSignedIn = MutableStateFlow(auth.currentUser != null)
-    val isGoogleSignedIn: StateFlow<Boolean> = _isGoogleSignedIn.asStateFlow()
+    private val _currentUser = MutableStateFlow(auth.currentUser)
+    val currentUser: StateFlow<com.google.firebase.auth.FirebaseUser?> = _currentUser.asStateFlow()
 
-    val showAuthScreen: StateFlow<Boolean> = combine(_isGoogleSignedIn, _isGuestMode) { signedIn, guest ->
-        !signedIn && !guest
+    val isGoogleSignedIn: StateFlow<Boolean> = _currentUser.map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser != null)
+
+    val showAuthScreen: StateFlow<Boolean> = combine(_currentUser, _isGuestMode) { user, guest ->
+        user == null && !guest
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser == null)
 
     private val _selectedTab = MutableStateFlow(0) // 0 for Weekly View, 1 for Monthly View
@@ -51,6 +49,9 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
 
     private val _lastSyncTime = MutableStateFlow("Never synced")
     val lastSyncTime: StateFlow<String> = _lastSyncTime.asStateFlow()
+    
+    private val _signInTrigger = MutableStateFlow(false)
+    val signInTrigger: StateFlow<Boolean> = _signInTrigger.asStateFlow()
 
     // Retrieve active month/year parameters dynamically
     val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1 // 1-indexed
@@ -74,7 +75,9 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
         
         // Listen for Auth changes
         auth.addAuthStateListener {
-            _isGoogleSignedIn.value = it.currentUser != null
+            val user = it.currentUser
+            _currentUser.value = user
+            android.util.Log.d("SpendSenseAuth", "Auth state changed. User: ${user?.email ?: "Signed out"}")
         }
     }
 
@@ -101,26 +104,38 @@ class SpendSenseViewModel(private val repository: ExpenseRepository) : ViewModel
         _isGuestMode.value = true
     }
 
-    // Google Sign-In trigger (Simulated with actual Firebase check)
+    // Google Sign-In trigger
     fun signInGoogleAccount() {
         viewModelScope.launch {
             _isSyncing.value = true
-            // This is usually handled via an Intent or Credential Manager
-            // The AuthStateListener will update the UI once the user is signed in
-            _isSyncing.value = false
+            _signInTrigger.value = true
         }
+    }
+    
+    fun onSignInSuccess() {
+        _isSyncing.value = false
+        _signInTrigger.value = false
+        _currentUser.value = auth.currentUser
+        android.util.Log.d("SpendSenseAuth", "Sign-in success handler called. User: ${auth.currentUser?.email}")
+    }
+    
+    fun onSignInFailed() {
+        _isSyncing.value = false
+        _signInTrigger.value = false
+        android.util.Log.e("SpendSenseAuth", "Sign-in failed handler called")
     }
 
     fun signOutGoogleAccount() {
+        android.util.Log.d("SpendSenseAuth", "Signing out user: ${auth.currentUser?.email}")
         auth.signOut()
-        _isGoogleSignedIn.value = false
+        _currentUser.value = null
         _isGuestMode.value = false
         _lastSyncTime.value = "Never synced"
     }
 
     // Seamless Encrypted Cloud Backup & Restore simulation
     fun triggerCloudSync() {
-        if (!_isGoogleSignedIn.value) return
+        if (_currentUser.value == null) return
         viewModelScope.launch {
             _isSyncing.value = true
             delay(1500) // Simulates generating payload, encrypting and uploading to private Drive directory

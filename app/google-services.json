@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "607813597743-o6qvpsbjuup1luvqgjf6hf9a7jp31iu0.apps.googleusercontent.com",
+          "client_id": "607813597743-8ci6muf5biokfdduifqv2u6t2aek84hv.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.spendsense.app",
-            "certificate_hash": "a789f506a807a122ec906aa6eac3d48b3a30ab18"
+            "certificate_hash": "0f948c9a41d94fe89a55986bb38b4ef9d029f650"
           }
         },
         {
