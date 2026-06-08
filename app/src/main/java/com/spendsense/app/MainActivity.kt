@@ -45,10 +45,11 @@ class MainActivity : ComponentActivity() {
         // Setup Room Database & Repository
         val database = AppDatabase.getDatabase(this)
         val repository = ExpenseRepository(database.expenseDao())
+        val syncManager = com.spendsense.app.data.SyncManager(database.expenseDao())
         
         // Instantiate ViewModel using custom Factory
         val viewModel: SpendSenseViewModel by viewModels {
-            SpendSenseViewModelFactory(repository)
+            SpendSenseViewModelFactory(repository, syncManager)
         }
         
         // Initialize Google Sign-In with requested profile and email

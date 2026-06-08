@@ -18,7 +18,7 @@ data class DecryptedExpense(
 
 class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
-    val allExpensesDecrypted: Flow<List<DecryptedExpense>> = expenseDao.getAllExpenses()
+    fun getAllExpensesDecrypted(userId: String): Flow<List<DecryptedExpense>> = expenseDao.getAllExpenses(userId)
         .map { list ->
             list.map { expense ->
                 val decryptedTitle = CryptoManager.decrypt(expense.titleEncrypted)
@@ -38,10 +38,11 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
             }
         }
 
-    suspend fun insertExpense(title: String, amount: Double, category: String, dayOfMonth: Int, month: Int, year: Int, dayOfWeek: Int) {
+    suspend fun insertExpense(userId: String, title: String, amount: Double, category: String, dayOfMonth: Int, month: Int, year: Int, dayOfWeek: Int) {
         val encryptedTitle = CryptoManager.encrypt(title)
         val encryptedAmount = CryptoManager.encrypt(amount.toString())
         val expense = Expense(
+            userId = userId,
             titleEncrypted = encryptedTitle,
             amountEncrypted = encryptedAmount,
             category = category,
@@ -53,10 +54,11 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
         expenseDao.insertExpense(expense)
     }
 
-    suspend fun deleteExpense(id: Int, category: String, dayOfMonth: Int, month: Int, year: Int, dayOfWeek: Int) {
+    suspend fun deleteExpense(userId: String, id: Int, category: String, dayOfMonth: Int, month: Int, year: Int, dayOfWeek: Int) {
         // Find dummy or reconstruct standard
         val expense = Expense(
             id = id,
+            userId = userId,
             titleEncrypted = "",
             amountEncrypted = "",
             category = category,
@@ -68,12 +70,12 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
         expenseDao.deleteExpense(expense)
     }
 
-    suspend fun getEncryptedBackupPayload(): List<Expense> {
-        return expenseDao.getExpensesSync()
+    suspend fun getEncryptedBackupPayload(userId: String): List<Expense> {
+        return expenseDao.getExpensesSync(userId)
     }
 
-    suspend fun restoreFromBackupPayload(expenses: List<Expense>) {
-        expenseDao.clearAll()
+    suspend fun restoreFromBackupPayload(userId: String, expenses: List<Expense>) {
+        expenseDao.clearAll(userId)
         expenseDao.insertExpenses(expenses)
     }
 }
