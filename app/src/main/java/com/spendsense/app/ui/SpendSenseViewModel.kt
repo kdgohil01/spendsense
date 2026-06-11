@@ -2,27 +2,48 @@ package com.spendsense.app.ui
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.spendsense.app.data.DecryptedExpense
 import com.spendsense.app.data.ExpenseRepository
-import kotlinx.coroutines.delay
+import com.spendsense.app.data.SyncManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 class SpendSenseViewModel(
     private val repository: ExpenseRepository,
-    private val syncManager: com.spendsense.app.data.SyncManager
+    private val syncManager: SyncManager
 ) : ViewModel() {
 
-    private val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
-    // General app states
+    private val authListener = FirebaseAuth.AuthStateListener {
+        val user = it.currentUser
+        _currentUser.value = user
+        Log.d("SpendSenseAuth", "Auth state changed. User: ${user?.email ?: "Signed out"}")
+    }
+
     private val _showSplash = MutableStateFlow(true)
     val showSplash: StateFlow<Boolean> = _showSplash.asStateFlow()
 
@@ -30,25 +51,27 @@ class SpendSenseViewModel(
     val isGuestMode: StateFlow<Boolean> = _isGuestMode.asStateFlow()
 
     private val _currentUser = MutableStateFlow(auth.currentUser)
-    val currentUser: StateFlow<com.google.firebase.auth.FirebaseUser?> = _currentUser.asStateFlow()
+    val currentUser: StateFlow<FirebaseUser?> = _currentUser.asStateFlow()
 
-    val isGoogleSignedIn: StateFlow<Boolean> = _currentUser.map { it != null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser != null)
+    val isGoogleSignedIn: StateFlow<Boolean> =
+        _currentUser.map { it != null }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser != null)
 
-    val showAuthScreen: StateFlow<Boolean> = combine(_currentUser, _isGuestMode) { user, guest ->
-        user == null && !guest
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser == null)
+    val showAuthScreen: StateFlow<Boolean> =
+        combine(_currentUser, _isGuestMode) { user, guest ->
+            user == null && !guest
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), auth.currentUser == null)
 
-    private val _selectedTab = MutableStateFlow(0) // 0 for Weekly View, 1 for Monthly View
+    private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
 
-    private val _selectedWeekDay = MutableStateFlow(getCurrentDayOfWeek()) // 1 (Mon) .. 7 (Sun)
+    private val _selectedWeekDay = MutableStateFlow(getCurrentDayOfWeek())
     val selectedWeekDay: StateFlow<Int> = _selectedWeekDay.asStateFlow()
 
-    private val _selectedMonthDay = MutableStateFlow(getCurrentDayOfMonth()) // 1 .. 31
+    private val _selectedMonthDay = MutableStateFlow(getCurrentDayOfMonth())
     val selectedMonthDay: StateFlow<Int> = _selectedMonthDay.asStateFlow()
 
-    private val _budgetLimit = MutableStateFlow(800.0) // Monthly/weekly budget setting
+    private val _budgetLimit = MutableStateFlow(800.0)
     val budgetLimit: StateFlow<Double> = _budgetLimit.asStateFlow()
 
     private val _isSyncing = MutableStateFlow(false)
@@ -57,54 +80,68 @@ class SpendSenseViewModel(
     private val _lastSyncTime = MutableStateFlow("Never synced")
     val lastSyncTime: StateFlow<String> = _lastSyncTime.asStateFlow()
 
-    // Mutex ensures only one Firestore sync runs at a time (prevents write conflicts
-    // when addExpense / deleteExpense fire back-to-back rapid calls).
+    // NEW: separate sync error state (lightweight improvement)
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncError: StateFlow<String?> = _syncError.asStateFlow()
+
     private val syncMutex = Mutex()
-    
+
     private val _signInTrigger = MutableStateFlow(false)
     val signInTrigger: StateFlow<Boolean> = _signInTrigger.asStateFlow()
 
-    // Retrieve active month/year parameters dynamically
-    val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1 // 1-indexed
+    // NEW: lightweight sync trigger to avoid spam
+    private val syncTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    val currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1
     val currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
-    val currentMonthName: String = SimpleDateFormat("MMMM", Locale.getDefault()).format(Date())
+    val currentMonthName: String =
+        SimpleDateFormat("MMMM", Locale.getDefault()).format(Date())
 
-    val currentUserId: StateFlow<String> = combine(_currentUser, _isGuestMode) { user, guest ->
-        when {
-            user != null -> user.uid
-            guest -> "guest"
-            else -> "guest"
-        }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, "guest")
+    val currentUserId: StateFlow<String> =
+        combine(_currentUser, _isGuestMode) { user, guest ->
+            when {
+                user != null -> user.uid
+                guest -> "guest"
+                else -> ""   // FIX: avoid mixing anonymous + guest data
+            }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
-    // All raw decrypted expenses collected dynamically from the safe repository
     @OptIn(ExperimentalCoroutinesApi::class)
-    val rawExpenses: StateFlow<List<DecryptedExpense>> = currentUserId
-        .flatMapLatest { userId ->
-            repository.getAllExpensesDecrypted(userId)
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+    val rawExpenses: StateFlow<List<DecryptedExpense>> =
+        currentUserId.flatMapLatest { userId ->
+            if (userId.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                repository.getAllExpensesDecrypted(userId)
+            }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
         )
 
     init {
-        // Run splash screen animation pause
         viewModelScope.launch {
-            delay(1800)
+            delay(1800.milliseconds)
             _showSplash.value = false
         }
-        
-        // Listen for Auth changes
-        auth.addAuthStateListener {
-            val user = it.currentUser
-            _currentUser.value = user
-            android.util.Log.d("SpendSenseAuth", "Auth state changed. User: ${user?.email ?: "Signed out"}")
+
+        auth.addAuthStateListener(authListener)
+
+        // NEW: sync collector (prevents spam sync calls)
+        viewModelScope.launch {
+            syncTrigger
+                .collect {
+                    runCloudSync()
+                }
         }
     }
 
-    // Interactive navigation setters
+    override fun onCleared() {
+        auth.removeAuthStateListener(authListener)
+        super.onCleared()
+    }
+
     fun selectTab(index: Int) {
         _selectedTab.value = index
     }
@@ -127,83 +164,43 @@ class SpendSenseViewModel(
         _isGuestMode.value = true
     }
 
-    // Google Sign-In trigger
     fun signInGoogleAccount() {
-        viewModelScope.launch {
-            _isSyncing.value = true
-            _signInTrigger.value = true
-        }
+        _signInTrigger.value = true
     }
-    
+
     fun onSignInSuccess() {
-        _isSyncing.value = false
         _signInTrigger.value = false
         _currentUser.value = auth.currentUser
-        android.util.Log.d("SpendSenseAuth", "Sign-in success handler called. User: ${auth.currentUser?.email}")
-        
-        // Auto-restore from cloud on successful sign in
-        viewModelScope.launch {
-            try {
-                _isSyncing.value = true
-                syncManager.restoreFromCloud()
-                android.util.Log.d("SpendSenseAuth", "Cloud restore completed successfully on sign-in")
-            } catch (e: Exception) {
-                android.util.Log.e("SpendSenseAuth", "Failed to restore from cloud on sign-in", e)
-            } finally {
-                _isSyncing.value = false
-            }
-        }
+        Log.d("SpendSenseAuth", "Sign-in success: ${auth.currentUser?.email}")
+
+        viewModelScope.launch { runCloudRestore() }
     }
-    
+
     fun onSignInFailed() {
         _isSyncing.value = false
         _signInTrigger.value = false
-        android.util.Log.e("SpendSenseAuth", "Sign-in failed handler called")
+        Log.e("SpendSenseAuth", "Sign-in failed")
     }
 
     fun signOutGoogleAccount() {
-        android.util.Log.d("SpendSenseAuth", "Signing out user: ${auth.currentUser?.email}")
         auth.signOut()
         _currentUser.value = null
         _isGuestMode.value = false
         _lastSyncTime.value = "Never synced"
+        _syncError.value = null
     }
 
-    // Seamless Encrypted Cloud Backup & Restore
     fun triggerCloudSync() {
-        if (_currentUser.value == null) return
-        // If a sync is already in flight, skip — the mutex will still serialise
-        // any queued calls so we never fire two Firestore writes simultaneously.
-        if (syncMutex.isLocked) return
-        viewModelScope.launch {
-            syncMutex.withLock {
-                _isSyncing.value = true
-                try {
-                    syncManager.syncWithCloud()
-                    val formatter = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
-                    _lastSyncTime.value = formatter.format(Date())
-                    Log.d("SpendSenseSync", "Cloud sync successful")
-                } catch (e: Exception) {
-                    Log.e("SpendSenseSync", "Sync failed", e)
-                    // Provide a clean, readable status rather than the raw exception string
-                    _lastSyncTime.value = when {
-                        e is kotlinx.coroutines.TimeoutCancellationException ->
-                            "Failed: request timed out — check your connection"
-                        e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
-                            "Failed: Firestore permission denied — check security rules"
-                        e.message?.contains("UNAVAILABLE", ignoreCase = true) == true ->
-                            "Failed: server unavailable — will retry next time"
-                        else -> "Failed: ${e.localizedMessage ?: e.message ?: e.toString()}"
-                    }
-                } finally {
-                    _isSyncing.value = false
-                }
-            }
-        }
+        syncTrigger.tryEmit(Unit) // FIX: prevents multiple direct sync calls
     }
 
-    // Expenses database actions
-    fun addExpense(title: String, amount: Double, category: String, dayOfMonth: Int, dayOfWeek: Int) {
+    fun addExpense(
+        title: String,
+        amount: Double,
+        category: String,
+        dayOfMonth: Int,
+        dayOfWeek: Int
+    ) {
         viewModelScope.launch {
             repository.insertExpense(
                 userId = currentUserId.value,
@@ -215,26 +212,83 @@ class SpendSenseViewModel(
                 year = currentYear,
                 dayOfWeek = dayOfWeek
             )
-            // Trigger sync AFTER the DB write completes, from the same coroutine
-            // (avoids the nested-launch race that caused duplicate _isSyncing toggles).
-            triggerCloudSync()
+            syncTrigger.tryEmit(Unit)
         }
     }
 
-    fun deleteExpense(id: Int, category: String, dayOfMonth: Int, dayOfWeek: Int) {
+    fun deleteExpense(
+        id: Int,
+        category: String,
+        dayOfMonth: Int,
+        dayOfWeek: Int
+    ) {
         viewModelScope.launch {
-            repository.deleteExpense(currentUserId.value, id, category, dayOfMonth, currentMonth, currentYear, dayOfWeek)
-            // Same fix: trigger sync after the delete is committed.
-            triggerCloudSync()
+            repository.deleteExpense(
+                currentUserId.value,
+                id,
+                category,
+                dayOfMonth,
+                currentMonth,
+                currentYear,
+                dayOfWeek
+            )
+            syncTrigger.tryEmit(Unit)
         }
     }
 
-    // Helper functions for dates representation
+    private suspend fun runCloudSync() {
+        if (_currentUser.value == null) return
+
+        syncMutex.withLock {
+            _isSyncing.value = true
+            try {
+                syncManager.syncWithCloud()
+                _lastSyncTime.value = formatSyncTime()
+                _syncError.value = null
+            } catch (e: Exception) {
+                _syncError.value = syncErrorDetail(e)
+                _lastSyncTime.value = "Failed"
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
+    private suspend fun runCloudRestore() {
+        syncMutex.withLock {
+            _isSyncing.value = true
+            try {
+                syncManager.restoreFromCloud()
+                _lastSyncTime.value = formatSyncTime()
+                _syncError.value = null
+            } catch (e: Exception) {
+                _syncError.value = syncErrorDetail(e)
+                _lastSyncTime.value = "Restore failed"
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
+    private fun formatSyncTime(): String {
+        val formatter = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+        return formatter.format(Date())
+    }
+
+    private fun syncErrorDetail(e: Exception): String = when (e) {
+        is TimeoutCancellationException -> "request timed out"
+        is FirebaseFirestoreException ->
+            when (e.code) {
+                FirebaseFirestoreException.Code.PERMISSION_DENIED -> "permission denied"
+                FirebaseFirestoreException.Code.UNAVAILABLE -> "server unavailable"
+                else -> e.message ?: "unknown error"
+            }
+        else -> e.localizedMessage ?: "unknown error"
+    }
+
     private fun getCurrentDayOfWeek(): Int {
         val calendar = Calendar.getInstance()
-        // Convert to standard 1 (Monday) to 7 (Sunday) format
-        val day = calendar.get(Calendar.DAY_OF_WEEK)
-        return when (day) {
+        return when (calendar.get(Calendar.DAY_OF_WEEK)) {
             Calendar.MONDAY -> 1
             Calendar.TUESDAY -> 2
             Calendar.WEDNESDAY -> 3
@@ -246,20 +300,6 @@ class SpendSenseViewModel(
         }
     }
 
-    private fun getCurrentDayOfMonth(): Int {
-        return Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
-    }
-}
-
-class SpendSenseViewModelFactory(
-    private val repository: ExpenseRepository,
-    private val syncManager: com.spendsense.app.data.SyncManager
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(SpendSenseViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return SpendSenseViewModel(repository, syncManager) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
-    }
+    private fun getCurrentDayOfMonth(): Int =
+        Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
 }

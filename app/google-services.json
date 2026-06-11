@@ -1,9 +1,4 @@
 {
-  "project_info": {
-    "project_number": "607813597743",
-    "project_id": "spendsense-eac1a",
-    "storage_bucket": "spendsense-eac1a.firebasestorage.app"
-  },
   "client": [
     {
       "client_info": {
@@ -43,5 +38,10 @@
       }
     }
   ],
-  "configuration_version": "1"
+  "configuration_version": "1",
+  "project_info": {
+    "project_number": "607813597743",
+    "project_id": "spendsense-eac1a",
+    "storage_bucket": "spendsense-eac1a.firebasestorage.app"
+  }
 }

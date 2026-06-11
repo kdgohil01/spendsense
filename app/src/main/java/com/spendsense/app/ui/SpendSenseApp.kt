@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -314,6 +313,7 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
                     if (isGoogleSignedIn) {
                         IconButton(
                             onClick = { viewModel.triggerCloudSync() },
+                            enabled = !isSyncing,
                             modifier = Modifier.testTag("dashboard_sync_button")
                         ) {
                             if (isSyncing) {
@@ -537,8 +537,8 @@ fun MainAppDashboard(viewModel: SpendSenseViewModel) {
             preselectedDayOfWeek = selectedWeekDay,
             preselectedDayOfMonth = selectedMonthDay,
             onDismiss = { showAddDialog = false },
-            onConfirm = { title, amt, cat ->
-                viewModel.addExpense(title, amt, cat, selectedMonthDay, selectedWeekDay)
+            onConfirm = { title, amt ->
+                viewModel.addExpense(title, amt, "Other", selectedMonthDay, selectedWeekDay)
                 showAddDialog = false
             }
         )
@@ -989,13 +989,10 @@ fun AddExpenseDialog(
     preselectedDayOfWeek: Int,
     preselectedDayOfMonth: Int,
     onDismiss: () -> Unit,
-    onConfirm: (String, Double, String) -> Unit
+    onConfirm: (String, Double) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var amountStr by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Food") }
-    
-    val categories = listOf("Food", "Bills", "Groceries", "Leisure", "Travel", "Other")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1030,28 +1027,6 @@ fun AddExpenseDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth().testTag("add_expense_amount")
                 )
-
-                // Large readable scroll chips for categories
-                Text("Category Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(categories) { cat ->
-                        val isSelected = selectedCategory == cat
-                        val color = CategoryColors[cat] ?: Color.Gray
-                        
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedCategory = cat },
-                            label = { Text(cat) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = color,
-                                selectedLabelColor = Color.Black
-                            )
-                        )
-                    }
-                }
             }
         },
         confirmButton = {
@@ -1059,7 +1034,7 @@ fun AddExpenseDialog(
                 onClick = {
                     val amt = amountStr.toDoubleOrNull() ?: 1.0
                     if (title.isNotBlank()) {
-                        onConfirm(title, amt, selectedCategory)
+                        onConfirm(title, amt)
                     }
                 },
                 modifier = Modifier.testTag("save_expense_confirm")
