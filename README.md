@@ -10,7 +10,7 @@
 
 **End-to-End Encrypted Expense Tracker with Beautiful UI**
 
-[Features](#-features) • [Screenshots](#-screenshots) • [Installation](#-installation) • [Architecture](#-architecture) • [Security](#-security) • [Contributing](#-contributing)
+[Features](#-features) • [Installation](#-installation) • [Architecture](#-architecture) • [Security](#-security) • [Contributing](#-contributing)
 
 </div>
 
@@ -67,16 +67,6 @@
 - **Interactive Calendar**: Tap any day to view or add expenses
 - **Smart Filtering**: Automatic filtering based on selected time period
 - **Responsive Design**: Optimized for various screen sizes
-
----
-
-## 📱 Screenshots
-
-> *Add your app screenshots here*
-
-```
-[Splash Screen] [Dashboard] [Add Expense] [Weekly View] [Monthly View]
-```
 
 ---
 
